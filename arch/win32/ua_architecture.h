@@ -58,6 +58,7 @@ typedef SSIZE_T ssize_t;
 #define UA_setsockopt(sockfd, level, optname, optval, optlen) \
     setsockopt(sockfd, level, optname, (const char*) (optval), optlen)
 #define UA_inet_pton InetPton
+#define UA_bind bind
 
 #if UA_IPV6
 # define UA_if_nametoindex if_nametoindex

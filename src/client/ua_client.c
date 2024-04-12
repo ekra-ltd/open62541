@@ -52,6 +52,10 @@ UA_ClientConfig_copy(UA_ClientConfig const *src, UA_ClientConfig *dst){
     if(retval != UA_STATUSCODE_GOOD)
         goto cleanup;
 
+    retval = UA_String_copy(&src->localAddress, &dst->localAddress);
+    if (retval != UA_STATUSCODE_GOOD)
+        goto cleanup;
+
     retval = UA_UserTokenPolicy_copy(&src->userTokenPolicy, &dst->userTokenPolicy);
     if(retval != UA_STATUSCODE_GOOD)
         goto cleanup;
@@ -128,6 +132,7 @@ void
 UA_ClientConfig_clear(UA_ClientConfig *config) {
     UA_ApplicationDescription_clear(&config->clientDescription);
     UA_String_clear(&config->endpointUrl);
+    UA_String_clear(&config->localAddress);
     UA_ExtensionObject_clear(&config->userIdentityToken);
 
     /* Delete the SecurityPolicies for Authentication */

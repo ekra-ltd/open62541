@@ -11,13 +11,17 @@
 #include "eventloop_common.h"
 
 /* Configuration parameters */
-#define TCP_PARAMETERSSIZE 6
+#define TCP_PARAMETERSSIZE 10
 #define TCP_PARAMINDEX_RECVBUF 0
 #define TCP_PARAMINDEX_ADDR 1
 #define TCP_PARAMINDEX_PORT 2
 #define TCP_PARAMINDEX_LISTEN 3
 #define TCP_PARAMINDEX_VALIDATE 4
 #define TCP_PARAMINDEX_REUSE 5
+#define TCP_PARAMINDEX_ADDR_LCL 6
+#define TCP_PARAMINDEX_FORCEKEEPALIVE 7
+#define TCP_PARAMINDEX_KEEPALIVEIDLE 8
+#define TCP_PARAMINDEX_KEEPALIVEINTVL 9
 
 static UA_KeyValueRestriction TCPConfigParameters[TCP_PARAMETERSSIZE] = {
     {{0, UA_STRING_STATIC("recv-bufsize")}, &UA_TYPES[UA_TYPES_UINT32], false, true, false},
@@ -25,7 +29,11 @@ static UA_KeyValueRestriction TCPConfigParameters[TCP_PARAMETERSSIZE] = {
     {{0, UA_STRING_STATIC("port")}, &UA_TYPES[UA_TYPES_UINT16], true, true, false},
     {{0, UA_STRING_STATIC("listen")}, &UA_TYPES[UA_TYPES_BOOLEAN], false, true, false},
     {{0, UA_STRING_STATIC("validate")}, &UA_TYPES[UA_TYPES_BOOLEAN], false, true, false},
-    {{0, UA_STRING_STATIC("reuse")}, &UA_TYPES[UA_TYPES_BOOLEAN], false, true, false}
+    {{0, UA_STRING_STATIC("reuse")}, &UA_TYPES[UA_TYPES_BOOLEAN], false, true, false},
+    {{0, UA_STRING_STATIC("lcl-address")}, &UA_TYPES[UA_TYPES_STRING], false, true, true},
+    {{0, UA_STRING_STATIC("force-keep-alive")}, &UA_TYPES[UA_TYPES_BOOLEAN], false, true, true},
+    {{0, UA_STRING_STATIC("keep-alive-idle")}, &UA_TYPES[UA_TYPES_UINT32], false, true, true},
+    {{0, UA_STRING_STATIC("keep-alive-intvl")}, &UA_TYPES[UA_TYPES_UINT32], false, true, true}    
 };
 
 typedef struct {
@@ -826,6 +834,70 @@ TCP_openActiveConnection(UA_POSIXConnectionManager *pcm, const UA_KeyValueMap *p
         freeaddrinfo(info);
         UA_close(newSock);
         return res;
+    }
+
+    /* Configure local address if present */
+    const UA_String *local_addr = (const UA_String*)
+        UA_KeyValueMap_getScalar(params, TCPConfigParameters[TCP_PARAMINDEX_ADDR_LCL].name,
+            &UA_TYPES[UA_TYPES_STRING]);
+    if (local_addr && !UA_String_isEmpty(local_addr)) {
+        struct sockaddr_in sa_loc;
+        memset(&sa_loc, 0, sizeof(struct sockaddr_in));
+        sa_loc.sin_family = AF_INET;
+        char local_hostname[UA_MAXHOSTNAME_LENGTH];
+        strncpy(local_hostname, (const char*)local_addr->data, local_addr->length);
+        local_hostname[local_addr->length] = 0;
+        sa_loc.sin_addr.s_addr = inet_addr(local_hostname);
+        error = UA_bind(newSock, (struct sockaddr*)&sa_loc, sizeof(struct sockaddr));
+        if (error) {
+            UA_LOG_SOCKET_ERRNO_WRAP(
+                UA_LOG_WARNING(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK,
+                    "TCP\t| Couldn't bind local address to socket (%s)", errno_str));
+            freeaddrinfo(info);
+            UA_close(newSock);
+            return UA_STATUSCODE_BADINTERNALERROR;
+        }
+    }
+
+    /* Configure keepalive */
+    const UA_Boolean *keepAlive = (const UA_Boolean*)
+        UA_KeyValueMap_getScalar(params, TCPConfigParameters[TCP_PARAMINDEX_FORCEKEEPALIVE].name,
+            &UA_TYPES[UA_TYPES_BOOLEAN]);
+    if (keepAlive && *keepAlive) {
+        int val = *keepAlive;
+        if (UA_setsockopt(newSock, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val))) {
+            UA_LOG_SOCKET_ERRNO_WRAP(
+                UA_LOG_WARNING(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK, "TCP\t| Couldn't enable keepalive to socket (%s)", errno_str)
+            );
+        }
+        else {
+#ifdef TCP_KEEPIDLE
+            const UA_UInt32 *keepIdle = (const UA_UInt32*)
+                UA_KeyValueMap_getScalar(params, TCPConfigParameters[TCP_PARAMINDEX_KEEPALIVEIDLE].name,
+                    &UA_TYPES[UA_TYPES_UINT32]);
+            if (keepIdle && *keepIdle != 0) {
+                val = *keepIdle;
+                if (UA_setsockopt(newSock, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof(val))) {
+                    UA_LOG_SOCKET_ERRNO_WRAP(
+                        UA_LOG_WARNING(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK, "TCP\t| Couldn't set keepalive idle to socket (%s)", errno_str)
+                    );
+                }
+            }
+#endif
+#ifdef TCP_KEEPINTVL
+            const UA_UInt32 *keepIntvl = (const UA_UInt32*)
+                UA_KeyValueMap_getScalar(params, TCPConfigParameters[TCP_PARAMINDEX_KEEPALIVEINTVL].name,
+                    &UA_TYPES[UA_TYPES_UINT32]);
+            if (keepIntvl && *keepIntvl != 0) {
+                val = *keepIntvl;
+                if (UA_setsockopt(newSock, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof(val))) {
+                    UA_LOG_SOCKET_ERRNO_WRAP(
+                        UA_LOG_WARNING(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK, "TCP\t| Couldn't set keepalive intvl to socket (%s)", errno_str)
+                    );
+                }
+            }
+#endif
+        }
     }
 
     /* Only validate, don't actually open the connection */

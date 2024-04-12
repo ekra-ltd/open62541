@@ -329,7 +329,12 @@ UA_CertSig_Aes256Sha256RsaPss_Verify(void *channelContext, const UA_ByteString *
 
     Channel_Context_Aes256Sha256RsaPss *cc =
         (Channel_Context_Aes256Sha256RsaPss *)channelContext;
-    UA_StatusCode retval = UA_OpenSSL_RSA_PKCS1_V15_SHA256_Verify(
+    /* According to the standard (https://profiles.opcfoundation.org/profile/2060), 
+       the profile "RSA-PKCS15-SHA2-256" should be used here, but due to some bug 
+       it is not compatible with all tested servers. So, I have to use the profile
+       "RSA-PSS-SHA2-256", which the tested servers agree to work with.
+    */
+    UA_StatusCode retval = UA_OpenSSL_RSA_PSS_SHA256_Verify(
         message, cc->remoteCertificateX509, signature);
 
     return retval;
@@ -343,7 +348,7 @@ UA_CertSig_Aes256Sha256RsaPss_sign(void *channelContext, const UA_ByteString *me
         return UA_STATUSCODE_BADINTERNALERROR;
     Channel_Context_Aes256Sha256RsaPss *cc = (Channel_Context_Aes256Sha256RsaPss *)channelContext;
     Policy_Context_Aes256Sha256RsaPss *pc = cc->policyContext;
-    return UA_Openssl_RSA_PKCS1_V15_SHA256_Sign(message, pc->localPrivateKey, signature);
+    return UA_Openssl_RSA_PSS_SHA256_Sign(message, pc->localPrivateKey, signature);
 }
 
 static size_t
@@ -674,7 +679,7 @@ UA_SecurityPolicy_Aes256Sha256RsaPss(UA_SecurityPolicy *policy,
 
     /* Certificate Signing Algorithm */
     policy->certificateSigningAlgorithm.uri =
-        UA_STRING("http://www.w3.org/2001/04/xmldsig-more#rsa-sha256\0");
+        UA_STRING("http://www.w3.org/2001/04/xmldsig-more#rsa-pss-sha2-256\0");
     policy->certificateSigningAlgorithm.verify =
         (UA_StatusCode (*)(void *, const UA_ByteString *, const UA_ByteString *))UA_CertSig_Aes256Sha256RsaPss_Verify;
     policy->certificateSigningAlgorithm.sign =
