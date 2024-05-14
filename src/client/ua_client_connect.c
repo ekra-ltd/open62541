@@ -1223,7 +1223,7 @@ requestFindServers(UA_Client *client) {
     request.endpointUrl = client->config.endpointUrl;
     // some servers return error if 'localeIds' and 'serverUris' are null
     request.localeIds = (UA_ByteString*)UA_EMPTY_ARRAY_SENTINEL;
-    request.serverUris = (UA_ByteString*)UA_EMPTY_ARRAY_SENTINEL;    
+    request.serverUris = (UA_ByteString*)UA_EMPTY_ARRAY_SENTINEL;
     UA_StatusCode retval =
         __Client_AsyncService(client, &request, &UA_TYPES[UA_TYPES_FINDSERVERSREQUEST],
                               (UA_ClientAsyncServiceCallback) responseFindServers,
@@ -1603,10 +1603,14 @@ __Client_networkCallback(UA_ConnectionManager *cm, uintptr_t connectionId,
         /* The connection closed before it actually opened. Since we are
          * connecting asynchronously, this happens when the TCP connection
          * fails. Try to fall back on the initial EndpointUrl. */
-        if(oldState == UA_SECURECHANNELSTATE_CONNECTING &&
-           client->connectStatus == UA_STATUSCODE_GOOD &&
-           !client->config.disableFallbackEndpointUrl)
-            client->connectStatus = fallbackEndpointUrl(client);
+        if (oldState == UA_SECURECHANNELSTATE_CONNECTING &&
+            client->connectStatus == UA_STATUSCODE_GOOD) {
+            if (client->config.noReconnectOnConnectionErrors)
+                // stop connecting process if connection failed
+                client->connectStatus = UA_STATUSCODE_BADNOTCONNECTED;
+            else
+                client->connectStatus = fallbackEndpointUrl(client);
+        }
 
         /* Try to reconnect */
         goto continue_connect;
@@ -1718,23 +1722,21 @@ initConnect(UA_Client *client) {
             continue;
 
         /* Set up the parameters */
-        UA_KeyValuePair params[6];
+        UA_KeyValuePair params[5];
         params[0].key = UA_QUALIFIEDNAME(0, "port");
         UA_Variant_setScalar(&params[0].value, &port, &UA_TYPES[UA_TYPES_UINT16]);
         params[1].key = UA_QUALIFIEDNAME(0, "address");
         UA_Variant_setScalar(&params[1].value, &hostname, &UA_TYPES[UA_TYPES_STRING]);
-        params[2].key = UA_QUALIFIEDNAME(0, "lcl-address");
-        UA_Variant_setScalar(&params[2].value, &client->config.localAddress, &UA_TYPES[UA_TYPES_STRING]);
-        params[3].key = UA_QUALIFIEDNAME(0, "force-keep-alive");
-        UA_Variant_setScalar(&params[3].value, &client->config.forceKeepAlive, &UA_TYPES[UA_TYPES_BOOLEAN]);
-        params[4].key = UA_QUALIFIEDNAME(0, "keep-alive-idle");
-        UA_Variant_setScalar(&params[4].value, &client->config.keepAliveIdle, &UA_TYPES[UA_TYPES_UINT32]);
-        params[5].key = UA_QUALIFIEDNAME(0, "keep-alive-intvl");
-        UA_Variant_setScalar(&params[5].value, &client->config.keepAliveIntvl, &UA_TYPES[UA_TYPES_UINT32]);        
+        params[2].key = UA_QUALIFIEDNAME(0, "force-keep-alive");
+        UA_Variant_setScalar(&params[2].value, &client->config.forceKeepAlive, &UA_TYPES[UA_TYPES_BOOLEAN]);
+        params[3].key = UA_QUALIFIEDNAME(0, "keep-alive-idle");
+        UA_Variant_setScalar(&params[3].value, &client->config.keepAliveIdle, &UA_TYPES[UA_TYPES_UINT32]);
+        params[4].key = UA_QUALIFIEDNAME(0, "keep-alive-intvl");
+        UA_Variant_setScalar(&params[4].value, &client->config.keepAliveIntvl, &UA_TYPES[UA_TYPES_UINT32]);        
 
         UA_KeyValueMap paramMap;
         paramMap.map = params;
-        paramMap.mapSize = 6;
+        paramMap.mapSize = 5;
 
         /* Open the client TCP connection */
         UA_UNLOCK(&client->clientMutex);

@@ -91,9 +91,6 @@ struct UA_ClientConfig {
      * Such as "opc.tcp://host:port". */
     UA_String endpointUrl;
 
-    /* Local connection endpoint (according to technical task) */
-    UA_String localAddress;
-
     /** Keep-alive settings */
     UA_Boolean forceKeepAlive;
     UA_UInt32 keepAliveIdle;
@@ -123,10 +120,7 @@ struct UA_ClientConfig {
                               * the intial one is lost. Instead abort the
                               * connection when the Session is lost. */
 
-    UA_Boolean disableFallbackEndpointUrl; /* Don't clear endpoint address even
-                                              if origin connection losted. It
-                                              breaks recovery connection actions.
-                                              */
+    UA_Boolean noReconnectOnConnectionErrors; /* Halt connection process if tcp connection is failed */
 
     /**
      * If either endpoint or userTokenPolicy has been set (at least one non-zero

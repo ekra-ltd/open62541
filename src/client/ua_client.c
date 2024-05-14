@@ -52,10 +52,6 @@ UA_ClientConfig_copy(UA_ClientConfig const *src, UA_ClientConfig *dst){
     if(retval != UA_STATUSCODE_GOOD)
         goto cleanup;
 
-    retval = UA_String_copy(&src->localAddress, &dst->localAddress);
-    if (retval != UA_STATUSCODE_GOOD)
-        goto cleanup;
-
     retval = UA_UserTokenPolicy_copy(&src->userTokenPolicy, &dst->userTokenPolicy);
     if(retval != UA_STATUSCODE_GOOD)
         goto cleanup;
@@ -132,7 +128,6 @@ void
 UA_ClientConfig_clear(UA_ClientConfig *config) {
     UA_ApplicationDescription_clear(&config->clientDescription);
     UA_String_clear(&config->endpointUrl);
-    UA_String_clear(&config->localAddress);
     UA_ExtensionObject_clear(&config->userIdentityToken);
 
     /* Delete the SecurityPolicies for Authentication */
@@ -571,7 +566,7 @@ __Client_Service(UA_Client *client, const void *request,
 
     /* Check that the SecureChannel is open and also a Session active (if we
      * want a Session). Otherwise reopen. */
-    if(!isFullyConnected(client)) {
+    if(!isFullyConnected(client) && !client->config.noReconnect) {
         UA_LOG_INFO(client->config.logging, UA_LOGCATEGORY_CLIENT,
                     "Re-establish the connction for the synchronous service call");
         connectSync(client);
