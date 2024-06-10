@@ -97,8 +97,28 @@ TCP_delayedClose(void *application, void *context) {
                         &UA_KEYVALUEMAP_NULL, UA_BYTESTRING_NULL);
     UA_LOCK(&el->elMutex);
 
+    struct linger so_linger;
+    so_linger.l_onoff = UA_TRUE;
+    so_linger.l_linger = 1; // 1 second
+    const int r = setsockopt(conn->rfd.fd,
+        SOL_SOCKET,
+        SO_LINGER,
+        (const char*)&so_linger,
+        sizeof so_linger
+    );
+    if (r != 0) {
+        UA_LOG_SOCKET_ERRNO_WRAP(
+            UA_LOG_WARNING(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK,
+            "TCP %u\t| Could not set linger option (%s)",
+            (unsigned)conn->rfd.fd, errno_str)
+        )
+    }
+
     /* Close the socket */
-    int ret = UA_close(conn->rfd.fd);
+    UA_LOG_WARNING(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK,
+        "TCP %u\t| Closing socket, max wait time = %u second(s)",
+        (unsigned)conn->rfd.fd, so_linger.l_linger);
+    const int ret = UA_close(conn->rfd.fd);
     if(ret == 0) {
         UA_LOG_INFO(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK,
                     "TCP %u\t| Socket closed", (unsigned)conn->rfd.fd);
