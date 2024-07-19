@@ -543,6 +543,7 @@ processServiceResponse(void *application, UA_SecureChannel *channel,
     default:
         UA_LOG_TRACE_CHANNEL(client->config.logging, channel,
                              "Invalid message type");
+        UA_SecureChannel_shutdown(channel, UA_SHUTDOWNREASON_SECURITYREJECT);
         channel->state = UA_SECURECHANNELSTATE_CLOSING;
         return UA_STATUSCODE_BADTCPMESSAGETYPEINVALID;
     }
