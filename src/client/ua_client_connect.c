@@ -2229,11 +2229,21 @@ disconnectSecureChannel(UA_Client *client, UA_Boolean sync) {
     if(sync && el &&
        el->state != UA_EVENTLOOPSTATE_FRESH &&
        el->state != UA_EVENTLOOPSTATE_STOPPED) {
-        UA_UNLOCK(&client->clientMutex);
+        UA_DateTime maxDate = UA_DateTime_nowMonotonic() + ((UA_DateTime)client->config.timeout * UA_DATETIME_MSEC);
+        UA_Boolean closeForce = false;
         while(client->channel.state != UA_SECURECHANNELSTATE_CLOSED) {
+            /* Force connection termination if the loop runs too long. */
+            if (!closeForce && maxDate < UA_DateTime_nowMonotonic()) {
+                closeForce = true;
+                UA_LOG_ERROR(client->config.logging, UA_LOGCATEGORY_CLIENT,
+                    "Force close secure channel by timed out");
+                UA_ConnectionManager *cm = client->channel.connectionManager;
+                cm->closeConnection(cm, client->channel.connectionId);
+            }
+            UA_UNLOCK(&client->clientMutex);
             el->run(el, 100);
+            UA_LOCK(&client->clientMutex);
         }
-        UA_LOCK(&client->clientMutex);
     }
 
     notifyClientState(client);

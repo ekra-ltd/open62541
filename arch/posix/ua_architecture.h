@@ -53,6 +53,8 @@
 #define UA_connect connect
 #define UA_getsockopt getsockopt
 #define UA_setsockopt setsockopt
+#define UA_getsockname getsockname
+#define UA_getpeername getpeername
 #define UA_inet_pton inet_pton
 #define UA_bind bind
 #if UA_IPV6

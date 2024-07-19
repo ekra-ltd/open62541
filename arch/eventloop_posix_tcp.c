@@ -185,6 +185,40 @@ TCP_connectionSocketCallback(UA_ConnectionManager *cm, TCP_FD *conn,
             return;
         }
 
+        /* Self-connected tcp sockets may cause to weird behaviour of UA client:
+         * it can enter to infinite loop while trying to close that socket. */
+        struct sockaddr_storage lstorage, pstorage;
+        socklen_t llen = sizeof(lstorage);
+        socklen_t plen = sizeof(pstorage);
+        if (UA_getsockname(conn->rfd.fd, (struct sockaddr *)&lstorage, &llen) == 0
+            && UA_getpeername(conn->rfd.fd, (struct sockaddr *)&pstorage, &plen) == 0
+        ) {
+            UA_Boolean isLoopback = false;
+            if (lstorage.ss_family == AF_INET6 && pstorage.ss_family == AF_INET6) {
+                struct sockaddr_in6 *localaddress = (struct sockaddr_in6 *)&lstorage;
+                struct sockaddr_in6 *peeraddress = (struct sockaddr_in6 *)&pstorage;
+                isLoopback = localaddress->sin6_port == peeraddress->sin6_port
+                          && memcmp((char*)&localaddress->sin6_addr,
+                                    (char*)&peeraddress->sin6_addr,
+                                    sizeof(localaddress->sin6_addr)) == 0;
+            }
+            else if (lstorage.ss_family == AF_INET && pstorage.ss_family == AF_INET) {
+                struct sockaddr_in *localaddress = (struct sockaddr_in *)&lstorage;
+                struct sockaddr_in *peeraddress = (struct sockaddr_in *)&pstorage;
+                isLoopback = localaddress->sin_port == peeraddress->sin_port
+                          && memcmp((char*)&localaddress->sin_addr,
+                                    (char*)&peeraddress->sin_addr,
+                                    sizeof(localaddress->sin_addr)) == 0;
+            }
+            if (isLoopback) {
+                UA_LOG_INFO(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK,
+                    "TCP %u\t| Bad tcp connection: peer address is equal to local address",
+                    (unsigned)conn->rfd.fd);
+                TCP_shutdown(cm, conn);
+                return;
+            }
+        }
+
         UA_LOG_DEBUG(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK,
                      "TCP %u\t| Opening a new connection",
                      (unsigned)conn->rfd.fd);

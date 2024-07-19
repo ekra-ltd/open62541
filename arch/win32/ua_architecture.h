@@ -57,6 +57,10 @@ typedef SSIZE_T ssize_t;
     getsockopt(sockfd, level, optname, (char*) (optval), optlen)
 #define UA_setsockopt(sockfd, level, optname, optval, optlen) \
     setsockopt(sockfd, level, optname, (const char*) (optval), optlen)
+#define UA_getsockname(sockfd, addr, addrlen) \
+    getsockname(sockfd, addr, addrlen)
+#define UA_getpeername(sockfd, addr, addrlen) \
+    getpeername(sockfd, addr, addrlen)
 #define UA_inet_pton InetPton
 #define UA_bind bind
 
