@@ -348,6 +348,9 @@ setDefaultConfig(UA_ServerConfig *conf, UA_UInt16 portNumber) {
     }
 
     conf->tcpReuseAddr = false;
+    conf->tcpForceKeepAlive = false;
+    conf->tcpKeepAliveIdle = 0;
+    conf->tcpKeepAliveIntvl = 0;
 
     /* --> Start setting the default static config <-- */
 

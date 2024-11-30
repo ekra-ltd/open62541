@@ -20,6 +20,7 @@
 #include <open62541/transport_generated_handling.h>
 #include <open62541/types_generated_handling.h>
 
+#include "../arch/eventloop_posix.h"
 #include "ua_server_internal.h"
 #include "ua_types_encoding_binary.h"
 #include "ua_services.h"
@@ -1263,6 +1264,18 @@ serverNetworkCallback(UA_ConnectionManager *cm, uintptr_t connectionId,
 
         /* Set the new channel as the new context for the connection */
         *connectionContext = (void*)channel;
+
+        /* Configure TCP keep-alive options */
+        if (bpm->server->config.tcpForceKeepAlive) {
+            const UA_ServerConfig *config = &bpm->server->config;
+            UA_EventLoopPOSIX_setTcpKeepAliveOptions(
+                connectionId,
+                &config->tcpForceKeepAlive,
+                config->tcpKeepAliveIdle != 0 ? &config->tcpKeepAliveIdle : NULL,
+                config->tcpKeepAliveIntvl != 0 ? &config->tcpKeepAliveIntvl : NULL,
+                bpm->logging
+            );
+        }
         return;
     }
 
@@ -1777,7 +1790,7 @@ UA_BinaryProtocolManager_start(UA_Server *server,
                                UA_ServerComponent *sc) {
     UA_BinaryProtocolManager *bpm = (UA_BinaryProtocolManager*)sc;
     UA_ServerConfig *config = &server->config;
-    
+
     UA_StatusCode retVal =
         addRepeatedCallback(server, secureChannelHouseKeeping,
                             bpm, 1000.0, &bpm->houseKeepingCallbackId);

@@ -173,6 +173,14 @@ UA_EventLoopPOSIX_setNoSigPipe(UA_FD sockfd);
 UA_StatusCode
 UA_EventLoopPOSIX_setReusable(UA_FD sockfd);
 
+/* Sets the TCP-socket keep-alive options */
+void
+UA_EventLoopPOSIX_setTcpKeepAliveOptions(UA_FD sockfd,
+                                         const UA_Boolean *keepalive,
+                                         const UA_UInt32 *keepidle,
+                                         const UA_UInt32 *keepintvl,
+                                         const UA_Logger *logger);
+
 _UA_END_DECLS
 
 #endif /* defined(UA_ARCHITECTURE_POSIX) || defined(UA_ARCHITECTURE_WIN32) */

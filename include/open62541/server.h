@@ -178,6 +178,11 @@ struct UA_ServerConfig {
                               * (default: 0 -> unbounded) */
     UA_Boolean tcpReuseAddr;
 
+    /* Keep-alive settings */
+    UA_Boolean tcpForceKeepAlive; /* Force enable keep-alive packets send */
+    UA_UInt32 tcpKeepAliveIdle;   /* Idle timeout in seconds before keep-alive packets send */
+    UA_UInt32 tcpKeepAliveIntvl;  /* Keep-alive packets send interval in seconds */
+
     /**
      * Security and Encryption
      * ^^^^^^^^^^^^^^^^^^^^^^^ */

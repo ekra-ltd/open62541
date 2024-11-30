@@ -557,3 +557,45 @@ UA_EventLoopPOSIX_setReusable(UA_FD sockfd) {
     return (res == 0) ? UA_STATUSCODE_GOOD : UA_STATUSCODE_BADINTERNALERROR;
 #endif
 }
+
+void
+UA_EventLoopPOSIX_setTcpKeepAliveOptions(UA_FD sockfd,
+                                         const UA_Boolean *keepalive,
+                                         const UA_UInt32 *keepidle,
+                                         const UA_UInt32 *keepintvl,
+                                         const UA_Logger *logger) {
+    if (keepalive) {
+        const int val = *keepalive;
+        if (UA_setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val))) {
+            UA_LOG_SOCKET_ERRNO_WRAP(UA_LOG_WARNING(
+                logger, UA_LOGCATEGORY_NETWORK,
+                "TCP %u\t| Could not set keepalive option to %i (%s)",
+                (unsigned)sockfd, val, errno_str
+            ))
+        }
+    }
+#ifdef TCP_KEEPIDLE
+    if (keepidle) {
+        const int val = (int)*keepidle;
+        if (UA_setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof(val))) {
+            UA_LOG_SOCKET_ERRNO_WRAP(UA_LOG_WARNING(
+                logger, UA_LOGCATEGORY_NETWORK,
+                "TCP %u\t| Could not set keepidle option to %i (%s)",
+                (unsigned)sockfd, val, errno_str
+            ))
+        }
+    }
+#endif
+#ifdef TCP_KEEPINTVL
+    if (keepintvl) {
+        const int val = (int)*keepintvl;
+        if (UA_setsockopt(sockfd, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof(val))) {
+            UA_LOG_SOCKET_ERRNO_WRAP(UA_LOG_WARNING(
+                logger, UA_LOGCATEGORY_NETWORK,
+                "TCP %u\t| Could not set keepintvl option to %i (%s)",
+                (unsigned)sockfd, val, errno_str
+            ))
+        }
+    }
+#endif
+}

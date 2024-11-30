@@ -31,7 +31,7 @@ static UA_KeyValueRestriction TCPConfigParameters[TCP_PARAMETERSSIZE] = {
     {{0, UA_STRING_STATIC("reuse")}, &UA_TYPES[UA_TYPES_BOOLEAN], false, true, false},
     {{0, UA_STRING_STATIC("force-keep-alive")}, &UA_TYPES[UA_TYPES_BOOLEAN], false, true, true},
     {{0, UA_STRING_STATIC("keep-alive-idle")}, &UA_TYPES[UA_TYPES_UINT32], false, true, true},
-    {{0, UA_STRING_STATIC("keep-alive-intvl")}, &UA_TYPES[UA_TYPES_UINT32], false, true, true}    
+    {{0, UA_STRING_STATIC("keep-alive-intvl")}, &UA_TYPES[UA_TYPES_UINT32], false, true, true}
 };
 
 typedef struct {
@@ -889,44 +889,23 @@ TCP_openActiveConnection(UA_POSIXConnectionManager *pcm, const UA_KeyValueMap *p
     }
 
     /* Configure keepalive */
-    const UA_Boolean *keepAlive = (const UA_Boolean*)
+    const UA_Boolean *forceKeepAlive = (const UA_Boolean*)
         UA_KeyValueMap_getScalar(params, TCPConfigParameters[TCP_PARAMINDEX_FORCEKEEPALIVE].name,
             &UA_TYPES[UA_TYPES_BOOLEAN]);
-    if (keepAlive && *keepAlive) {
-        int val = *keepAlive;
-        if (UA_setsockopt(newSock, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val))) {
-            UA_LOG_SOCKET_ERRNO_WRAP(
-                UA_LOG_WARNING(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK, "TCP\t| Couldn't enable keepalive to socket (%s)", errno_str)
-            );
-        }
-        else {
-            const UA_UInt32 *keepIdle = (const UA_UInt32*)
-                UA_KeyValueMap_getScalar(params, TCPConfigParameters[TCP_PARAMINDEX_KEEPALIVEIDLE].name,
-                    &UA_TYPES[UA_TYPES_UINT32]);
-            const UA_UInt32 *keepIntvl = (const UA_UInt32*)
-                UA_KeyValueMap_getScalar(params, TCPConfigParameters[TCP_PARAMINDEX_KEEPALIVEINTVL].name,
-                    &UA_TYPES[UA_TYPES_UINT32]);
-#ifdef TCP_KEEPIDLE
-            if (keepIdle && *keepIdle != 0) {
-                val = *keepIdle;
-                if (UA_setsockopt(newSock, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof(val))) {
-                    UA_LOG_SOCKET_ERRNO_WRAP(
-                        UA_LOG_WARNING(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK, "TCP\t| Couldn't set keepalive idle to socket (%s)", errno_str)
-                    );
-                }
-            }
-#endif
-#ifdef TCP_KEEPINTVL
-            if (keepIntvl && *keepIntvl != 0) {
-                val = *keepIntvl;
-                if (UA_setsockopt(newSock, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof(val))) {
-                    UA_LOG_SOCKET_ERRNO_WRAP(
-                        UA_LOG_WARNING(el->eventLoop.logger, UA_LOGCATEGORY_NETWORK, "TCP\t| Couldn't set keepalive intvl to socket (%s)", errno_str)
-                    );
-                }
-            }
-#endif
-        }
+    if (forceKeepAlive && *forceKeepAlive) {
+        const UA_UInt32 *keepIdle = (const UA_UInt32*)
+            UA_KeyValueMap_getScalar(params, TCPConfigParameters[TCP_PARAMINDEX_KEEPALIVEIDLE].name,
+                &UA_TYPES[UA_TYPES_UINT32]);
+        const UA_UInt32 *keepIntvl = (const UA_UInt32*)
+            UA_KeyValueMap_getScalar(params, TCPConfigParameters[TCP_PARAMINDEX_KEEPALIVEINTVL].name,
+                &UA_TYPES[UA_TYPES_UINT32]);
+        UA_EventLoopPOSIX_setTcpKeepAliveOptions(
+            newSock,
+            forceKeepAlive,
+            keepIdle && *keepIdle != 0 ? keepIdle : NULL,
+            keepIntvl && *keepIntvl != 0 ? keepIntvl : NULL,
+            el->eventLoop.logger
+        );
     }
 
     /* Only validate, don't actually open the connection */
