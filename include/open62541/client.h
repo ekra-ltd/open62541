@@ -92,9 +92,9 @@ struct UA_ClientConfig {
     UA_String endpointUrl;
 
     /** Keep-alive settings */
-    UA_Boolean forceKeepAlive;
-    UA_UInt32 keepAliveIdle;
-    UA_UInt32 keepAliveIntvl;
+    UA_Boolean forceKeepAlive; /* Force enable keep-alive packets send */
+    UA_UInt32 keepAliveIdle;   /* Idle timeout in seconds before keep-alive packets send */
+    UA_UInt32 keepAliveIntvl;  /* Keep-alive packets send interval in seconds */
 
     /**
      * Connection configuration
