@@ -376,10 +376,19 @@ UA_UNLOCK(UA_Lock *lock) {
     LeaveCriticalSection(&lock->mutex);
 }
 
+#if defined(_MSC_VER)
+#   pragma warning( push )
+#   pragma warning( disable : 4100 )    // unreferenced formal parameter
+#endif
+
 static UA_INLINE void
 UA_LOCK_ASSERT(UA_Lock *lock, int num) {
     UA_assert(lock->mutexCounter == num);
 }
+
+#if defined(_MSC_VER)
+#   pragma warning( pop )
+#endif
 
 #elif defined(UA_ARCHITECTURE_POSIX)
 
